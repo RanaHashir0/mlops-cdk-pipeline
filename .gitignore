@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# CDK
+cdk.out/
+
+# AWS credentials
+*.env
+.env*
+*.aws
+*.json
+*.yaml
+*.yml
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+
+# Ignore credentials
+credentials
+config
