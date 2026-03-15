@@ -1,311 +1,154 @@
 # MLOps Pipeline with AWS CDK
 
-Serverless MLOps regression pipeline: upload a CSV → XGBoost trains → model deploys → prediction tested → endpoint cleaned up automatically.
+This repository contains a serverless MLOps regression pipeline built using AWS CDK (Cloud Development Kit). It demonstrates how to automate the training, deployment, testing, and cleanup of an XGBoost model on AWS SageMaker.
+
+The pipeline is triggered automatically when a CSV dataset is uploaded to an S3 bucket.
 
 ---
 
-## Table of Contents
+## 🚀 Features
 
-1. [What This Does](#what-this-does)
-2. [Prerequisites](#prerequisites)
-3. [Step 1 — AWS Account Setup](#step-1--aws-account-setup)
-4. [Step 2 — Install Required Tools](#step-2--install-required-tools)
-5. [Step 3 — Configure AWS CLI](#step-3--configure-aws-cli)
-6. [Step 4 — Clone / Open the Project](#step-4--clone--open-the-project)
-7. [Step 5 — Set Up Python Environment](#step-5--set-up-python-environment)
-8. [Step 6 — Bootstrap CDK](#step-6--bootstrap-cdk)
-9. [Step 7 — Deploy the Stack](#step-7--deploy-the-stack)
-10. [Step 8 — Test the Pipeline](#step-8--test-the-pipeline)
-11. [Step 9 — Monitor on AWS Console](#step-9--monitor-on-aws-console)
-12. [Step 10 — Clean Up](#step-10--clean-up)
-13. [Troubleshooting](#troubleshooting)
+- **Infrastructure as Code (IaC):** Entire infrastructure defined in Python using AWS CDK.
+- **Serverless Workflow:** Orchestrated by AWS Step Functions.
+- **Automated Training:** Uses SageMaker to train an XGBoost model.
+- **Auto-Deployment:** Deploys the trained model to a SageMaker endpoint.
+- **Automated Testing:** A Lambda function tests the endpoint with sample data.
+- **Cost Optimization:** Automatically deletes the costly SageMaker endpoint after testing.
 
 ---
 
-## What This Does
+## 🏗 Architecture
 
-When you upload a `.csv` file to the S3 bucket's `train/` folder:
-
-```
-Upload CSV  →  S3 Event  →  Lambda (Trigger)  →  Step Functions
-    →  SageMaker XGBoost Training  →  Create Model
-    →  Create Endpoint  →  Lambda (Test prediction)
-    →  Lambda (Delete endpoint to avoid costs)
-```
-
----
-
-## Prerequisites
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Python | ≥ 3.7 | CDK stack code + Lambda functions |
-| Node.js + npm | ≥ 14 | CDK CLI runs on Node |
-| AWS CLI | Latest | Talk to AWS from terminal |
-| AWS CDK CLI | Latest | Deploy infrastructure |
+1. **User** uploads a `train/*.csv` file to an S3 Bucket.
+2. **S3 Event Notification** triggers a Lambda function.
+3. **Lambda** starts a **Step Functions** state machine.
+4. **Step Functions** orchestrates the workflow:
+    - **Train:** Starts a SageMaker Training Job (XGBoost).
+    - **Create Model:** Creates a SageMaker Model resource.
+    - **Configure Endpoint:** Creates an Endpoint Configuration.
+    - **Deploy:** Deploys the Model to a real-time Endpoint.
+    - **Test:** Invokes a Lambda to send sample data to the Endpoint.
+    - **Cleanup:** Invokes a Lambda to delete the Endpoint and Config (saving costs).
 
 ---
 
-## Step 1 — AWS Account Setup
+## 📂 Project Structure
 
-### 1.1 Create a Free AWS Account
-1. Go to [https://aws.amazon.com/](https://aws.amazon.com/)
-2. Click **Create a Free Account**
-3. Follow sign-up steps (credit card required, but Free Tier is sufficient)
-
-### 1.2 Create an IAM User (do NOT use root account)
-1. Log in to **AWS Console** → search for **IAM**
-2. Click **Users** → **Create user**
-3. Username: `cdk-deploy-user`
-4. Click **Next** → **Attach policies directly**
-5. Attach these policies:
-   - `AdministratorAccess` *(for learning/assignment use)*
-6. Click **Create user**
-7. Click the newly created user → **Security credentials** tab
-8. Scroll to **Access keys** → **Create access key**
-9. Choose **Command Line Interface (CLI)**
-10. Click **Next** → **Create access key**
-11. **IMPORTANT:** Copy/download the `Access Key ID` and `Secret Access Key` — you won't see the secret again
-
----
-
-## Step 2 — Install Required Tools
-
-### 2.1 Install Node.js
-Download from [https://nodejs.org/](https://nodejs.org/) (LTS version)
-
-Verify:
-```bash
-node -v
-npm -v
 ```
-
-### 2.2 Install AWS CDK CLI
-```bash
-npm install -g aws-cdk
-```
-
-Verify:
-```bash
-cdk --version
-```
-
-### 2.3 Install AWS CLI
-- Windows: Download installer from [https://aws.amazon.com/cli/](https://aws.amazon.com/cli/)
-- Or via pip:
-```bash
-pip install awscli
-```
-
-Verify:
-```bash
-aws --version
-```
-
-### 2.4 Install Python (if not already installed)
-Download from [https://python.org/](https://python.org/) (3.9 recommended)
-
----
-
-## Step 3 — Configure AWS CLI
-
-Open your terminal and run:
-
-```bash
-aws configure
-```
-
-Enter the values when prompted:
-```
-AWS Access Key ID [None]:     PASTE_YOUR_ACCESS_KEY_ID
-AWS Secret Access Key [None]: PASTE_YOUR_SECRET_ACCESS_KEY
-Default region name [None]:   us-east-1
-Default output format [None]: json
-```
-
-Verify it works:
-```bash
-aws sts get-caller-identity
-```
-
-You should see your account ID and user ARN printed.
-
----
-
-## Step 4 — Clone / Open the Project
-
-The project is already at:
-```
-Task2/mlops-cdk-pipeline/
-```
-
-Navigate into it in your terminal:
-```bash
-cd "d:\Hashir\8th_semester\Cloud\Assignments\Task2\mlops-cdk-pipeline"
+mlops-cdk-pipeline/
+├── app.py                 # CDK App entry point
+├── cdk.json               # CDK configuration
+├── requirements.txt       # Python dependencies
+├── stacks/
+│   └── mlops_stack.py     # Definition of the Main CDK Stack (S3, SageMaker, Step Functions)
+├── lambda/
+│   ├── index.py           # Trigger Lambda (starts Step Functions)
+│   ├── test.py            # Test Lambda (invokes SageMaker Endpoint)
+│   └── delete.py          # Cleanup Lambda (deletes Endpoint)
+└── README.md              # Detailed local setup guide
 ```
 
 ---
 
-## Step 5 — Set Up Python Environment
+## 🛠 Prerequisites
 
-### 5.1 Create a virtual environment
-```bash
-python -m venv .venv
-```
+Before you begin, ensure you have the following installed:
 
-### 5.2 Activate it
-
-**Windows (Command Prompt / PowerShell):**
-```bash
-.venv\Scripts\activate
-```
-
-**Mac / Linux:**
-```bash
-source .venv/bin/activate
-```
-
-You'll see `(.venv)` at the start of your terminal prompt — this means it's active.
-
-### 5.3 Install dependencies
-```bash
-pip install -r requirements.txt
-```
-
-This installs `aws-cdk-lib`, `constructs`, and `boto3`.
-
-### 5.4 Verify CDK can see the app
-```bash
-cdk synth
-```
-
-This should print a CloudFormation template (long JSON/YAML output). No errors = good.
+1.  **AWS Account:** With `AdministratorAccess` (or sufficient permissions for files, SageMaker, IAM, Lambda, etc.).
+2.  **AWS CLI:** configured with your credentials (`aws configure`).
+3.  **Node.js & npm:** Required for the CDK CLI.
+4.  **Python 3.9+:** For the infrastructure code and Lambda functions.
+5.  **AWS CDK CLI:** Install via `npm install -g aws-cdk`.
 
 ---
 
-## Step 6 — Bootstrap CDK
+## 📥 Installation
 
-> **This only needs to be done ONCE per AWS account per region.**
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/RanaHashir0/mlops-cdk-pipeline.git
+    cd mlops-cdk-pipeline
+    ```
 
-```bash
-cdk bootstrap
-```
+2.  **Create and activate a virtual environment:**
+    ```bash
+    python -m venv .venv
+    # Windows:
+    .venv\Scripts\activate
+    # Mac/Linux:
+    source .venv/bin/activate
+    ```
 
-This creates an S3 bucket and ECR repo in your AWS account that CDK uses to stage assets during deployment. Takes about 1–2 minutes.
-
-Expected output:
-```
-✅  Environment aws://YOUR_ACCOUNT_ID/us-east-1 bootstrapped.
-```
-
----
-
-## Step 7 — Deploy the Stack
-
-```bash
-cdk deploy
-```
-
-CDK will show you what it's about to create and ask for confirmation:
-```
-Do you wish to deploy these changes (y/n)? y
-```
-
-Type `y` and press Enter. Deployment takes **3–5 minutes**.
-
-When done, you'll see output like:
-```
-Outputs:
-MLOpsStack.BucketName      = mlopsstack-datasetbucket-abc123
-MLOpsStack.StateMachineArn = arn:aws:states:us-east-1:123456789:stateMachine/MLOpsStateMachine
-```
-
-**Copy the `BucketName` value — you'll need it in the next step.**
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ---
 
-## Step 8 — Test the Pipeline
+## 🚀 Deployment
 
-### 8.1 Prepare a sample CSV file
+1.  **Bootstrap CDK (One-time setup per region):**
+    ```bash
+    cdk bootstrap
+    ```
 
-Create a file called `sample.csv` in a `train/` folder with some numeric regression data, for example:
-```
-feature1,feature2,feature3,label
-0.5,0.3,0.1,1.2
-0.8,0.6,0.2,2.1
-0.2,0.1,0.9,0.8
-```
+2.  **Synthesize the template (Optional check):**
+    ```bash
+    cdk synth
+    ```
 
-### 8.2 Upload the CSV to S3
+3.  **Deploy the stack:**
+    ```bash
+    cdk deploy
+    ```
+    *Confirm strictly by typing `y` when prompted.*
 
-Replace `YOUR_BUCKET_NAME` with the bucket name from Step 7:
-
-```bash
-aws s3 cp train/ s3://YOUR_BUCKET_NAME/train/ --recursive
-```
-
-Or upload a single file:
-```bash
-aws s3 cp sample.csv s3://YOUR_BUCKET_NAME/train/sample.csv
-```
-
-This upload **automatically triggers the pipeline**.
+    **Note:** After deployment, note down the **Bucket Name** from the outputs.
 
 ---
 
-## Step 9 — Monitor on AWS Console
+## 🧪 Usage / Testing
 
-### 9.1 Watch Step Functions
-1. Go to [https://console.aws.amazon.com/states/](https://console.aws.amazon.com/states/)
-2. Make sure region is **us-east-1** (top-right dropdown)
-3. Click **MLOpsStateMachine**
-4. Click the latest execution
-5. You'll see each step turn green as it completes:
-   - ✅ TrainXGBoost
-   - ✅ CreateModel
-   - ✅ CreateEndpointConfig
-   - ✅ CreateEndpoint
-   - ✅ TestEndpoint
-   - ✅ DeleteEndpoint
+1.  **Prepare a Dataset:**
+    Create a file named `sample.csv` (or use the one provided in `train/` if available).
 
-### 9.2 Watch SageMaker Training
-1. Go to [https://console.aws.amazon.com/sagemaker/](https://console.aws.amazon.com/sagemaker/)
-2. Click **Training jobs** in the left sidebar
-3. You'll see a job running → then **Completed**
+2.  **Upload to S3:**
+    Upload the file to the `train/` folder in your new S3 bucket.
+    ```bash
+    aws s3 cp train/sample.csv s3://YOUR_BUCKET_NAME/train/sample.csv
+    ```
 
-### 9.3 Check Lambda Logs
-1. Go to **CloudWatch** → **Log groups**
-2. Search for `/aws/lambda/MLOpsStack`
-3. Click the log group for `TestLambda` to see the prediction output
+3.  **Watch it Run:**
+    - Go to the **AWS Step Functions** console.
+    - Select the `MLOpsStateMachine`.
+    - You should see a new execution running.
+    - Follow the steps turn green as it trains, deploys, tests, and cleans up!
 
 ---
 
-## Step 10 — Clean Up
+## 🧹 Cleanup
 
-When you're done, **delete all AWS resources** to avoid any charges:
+To remove all resources and avoid future charges:
 
 ```bash
 cdk destroy
 ```
 
-Type `y` when prompted. This deletes:
-- The S3 bucket and all its contents
-- All Lambda functions
-- The Step Functions state machine
-- All IAM roles
+---
 
-> ⚠️ The SageMaker endpoint is automatically cleaned up *by the pipeline itself* (the `delete.py` Lambda). But always verify in the SageMaker console that no endpoints are running.
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome!
+
+1.  Fork the project.
+2.  Create your feature branch (`git checkout -b feature/AmazingFeature`).
+3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4.  Push to the branch (`git push origin feature/AmazingFeature`).
+5.  Open a Pull Request.
 
 ---
 
-## Troubleshooting
+## 📄 License
 
-| Problem | Solution |
-|---------|----------|
-| `cdk: command not found` | Run `npm install -g aws-cdk` again |
-| `Unable to locate credentials` | Run `aws configure` and enter your keys |
-| `CDK bootstrap required` | Run `cdk bootstrap` first |
-| `cdk synth` shows import errors | Make sure `.venv` is active and `pip install -r requirements.txt` ran |
-| S3 upload works but pipeline doesn't trigger | Check that file is in the `train/` prefix, not root of bucket |
-| SageMaker training fails | Check CloudWatch logs under `/aws/sagemaker/TrainingJobs` |
-| `cdk destroy` fails on S3 bucket | S3 bucket has `auto_delete_objects=True` so it should work; retry once |
+Distributed under the MIT License. See `LICENSE` for more information.
